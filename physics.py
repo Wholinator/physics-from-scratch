@@ -22,23 +22,98 @@ class polar_coord():
         self.r = r
         self.theta = theta
 
+    def to_cartesian(self):
+        return cartesian_coord(
+            self.r * math.cos(self.theta),
+            self.r * math.sin(self.theta)
+        )
+
+    def __add__(self, p):
+        if isinstance(p, polar_coord):
+            r = math.sqrt(
+                math.pow(self.r, 2) + math.pow(p.r, 2) + 
+                (2 * self.r * p.r * math.cos(p.theta - self.theta))
+            )
+            theta = self.theta + math.atan(
+                (p.r * math.sin(p.theta - self.theta)) / 
+                (self.r + (p.r * math.cos(p.theta - self.theta)))
+            )
+            return polar_coord(r=r, theta=theta)
+        if isinstance(p, cartesian_coord):
+            raise TypeError("Attempting to add polar and cartesian, please convert to desired format first")
+
+        # just throw the error if all else fails
+        return self + p
+
+
+    def add_slow(self, p):
+        # convert back and forth, let's see
+        if isinstance(p, polar_coord):
+            return (self.to_cartesian() + p.to_cartesian()).to_polar()
+
+        # all else fails, just throw the exception
+        return self + p
+
+    def add_2(self, p):
+
+
+
 class cartesian_coord():
     def __init__(self, x, y):
         self.x = x
         self.y = y
 
+    def __add__(self, p):
+        if isinstance(p, cartesian_coord):
+            return cartesian_coord(
+                self.x + p.x,
+                self.y + p.y
+            )
+        if isinstance(p, polar_coord):
+            raise TypeError("Please convert coordinates to same type")
+        raise TypeError("Cannot add cartesian_coord to " + type(p))
+
+    def to_polar(self):
+        return polar_coord(
+            r = math.sqrt(math.pow(self.x, 2) + math.pow(self.y, 2)),
+            theta = math.atan2(self.y, self.x)
+        )
+
 class circle():
-    def __init__(self, mass, position,
+    def __init__(self, canvas, mass, position,
             velocity=cartesian_coord(0,0), acceleration=cartesian_coord(0,0), momentum=cartesian_coord(0,0), 
-                    energy=0, charge=0):
+                    energy=0, charge=0, color="orange"):
         self.mass = mass
         self.position = position
+        self.movement = cartesian_coord(0, 0)
         self.velocity = velocity
         self.acceleration = acceleration
         self.momentum = momentum
         self.energy = energy
         self.charge = charge
         self.size = 10 # set to minimum then math.log then max
+        
+        # drawing stuff
+        self.start_point = cartesian_coord(
+            position.x - (self.size / 2),
+            position.y - (self.size / 2)
+        )
+        self.end_point = cartesian_coord(
+            position.x + (self.size / 2),
+            position.y + (self.size / 2)
+        )
+        self.canvas = canvas
+        self.vis = self.canvas.create_oval(
+            self.start_point.x,
+            self.start_point.y,
+            self.end_point.x,
+            self.end_point.y,
+            fill=color
+        )
+
+
+    def move_obj(self):
+        self.canvas.move(self.vis, self.movement.x, self.movement.y)
 
 # returns distance vector with pythagorean distance and radian angle
 def difference_polar(point_from, point_to):
@@ -71,24 +146,41 @@ def calc_velocity(circle, acceleration, time_delta):
         circle.velocity.y + (acceleration.y * time_delta)
     )
 
-def calc_position(circle, velocity, time_delta):
+# hmmmmm this just feels wrong to do, but how else could I accurately get 
+# position change for the graphics? Would I just wave the positions of everything
+# and then calculate the change and apply that? I'm trying to ensure smallest 
+# possible error accumulation... accurate display.
+#
+# I could just place a quick error check on positions every 100 iterations and erase/redraw
+# if the positions get out of hand. It's probably useful to somehow record the difference
+# between displayed position and physics position somewhere to keep track of if this is even an issue
+def calc_position_change(velocity, time_delta):
     return cartesian_coord(
-        circle.position.x + (velocity.x * time_delta),
-        circle.position.y + (velocity.y * time_delta)
+        velocity.x * time_delta,
+        velocity.y * time_delta
+    )
+
+def calc_position(circle, pos_delta):
+    return cartesian_coord(
+        circle.position.x + pos_delta.x,
+        circle.position.y + pos_delta.y
     )
 
 # do these in a row or calculate changes and apply all at once?
 def tick_object_row(circle, force, delta):
     circle.acceleration = calc_acceleration(circle, force)
     circle.velocity = calc_velocity(circle, circle.acceleration, delta)
-    circle.position = calc_position(circle, circle.velocity, delta)
+    circle.movement += calc_position_change(circle.velocity, delta)
+    circle.position = calc_position(circle, circle.movement)
 
 def tick_object_simult(circle, force, delta):
     acceleration = calc_acceleration(circle, force)
     velocity = calc_velocity(circle, circle.acceleration, delta)
-    position = calc_position(circle, circle.velocity, delta)
+    movement = calc_position_change(circle.velocity, delta)
+    position = calc_position(circle, movement)
 
-    circle.acceleration, circle.velocity, circle.position = acceleration, velocity, position
+    circle.acceleration, circle.velocity, circle.position  = acceleration, velocity, position
+    circle.movement += movement # += to add up changes until next visual frame
 
 # force of:
     # gravity
@@ -134,6 +226,9 @@ masses = []
 window = tk.Tk()
 canvas = tk.Canvas(window, width=x_max, height=y_max)
 canvas.pack()
+# background
+canvas.create_rectangle(0, 0, x_max, y_max, fill="black")
+
 
 # iterates and draws masses
 # could be expanded to draw arrows or all kinds of things!
@@ -141,22 +236,14 @@ def draw():
     # TODO: transition this to move rather than paint over!
 
     # TODO: add velocity arrows
+    # TODO: add hollow spheres at edge of square when circle goes out of bounds
+    # TODO: Change color with mass
+    # TODO: change size with mass by log or something
     # call physics changes, could alter iteration inside from 1 to 10, hopefully it runs well enough
     physics()
-    canvas.create_rectangle(0, 0, x_max, y_max, fill="black")
     for cir in masses:
-        size = cir.size
-        position = cir.position
-        p1 = cartesian_coord(
-            position.x - (size / 2),
-            position.y - (size / 2)
-        )
-        p2 = cartesian_coord(
-            position.x + (size / 2),
-            position.y + (size / 2)
-        )
-        canvas.create_oval(p1.x, p1.y, p2.x, p2.y, fill="orange")
-
+        cir.move()
+        
     window.after(10, draw)
 
 #### this is the actual physics simulation 
@@ -208,9 +295,11 @@ def start(event):
     masses.append(circle(5000, cartesian_coord(140, 160)))
     draw()
 
-start(event=None)
-# window.bind('<Return>', start)
-window.mainloop()
+
+if __name__ == "__main__":
+    start(event=None)
+    # window.bind('<Return>', start)
+    window.mainloop()
 
 
 #TODO IDEAS:
