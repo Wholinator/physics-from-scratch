@@ -45,7 +45,7 @@ class polar_coord():
         # just throw the error if all else fails
         return self + p
 
-
+    # the mathed out __add__ function above is 60% faster than this
     def add_slow(self, p):
         # convert back and forth, let's see
         if isinstance(p, polar_coord):
@@ -53,8 +53,6 @@ class polar_coord():
 
         # all else fails, just throw the exception
         return self + p
-
-    def add_2(self, p):
 
 
 
@@ -112,7 +110,7 @@ class circle():
         )
 
 
-    def move_obj(self):
+    def move(self):
         self.canvas.move(self.vis, self.movement.x, self.movement.y)
 
 # returns distance vector with pythagorean distance and radian angle
@@ -290,9 +288,9 @@ def physics():
     # update graphics here to tie framerate 
 
 def start(event):
-    masses.append(circle(150000000, cartesian_coord(15, 15)))
-    masses.append(circle(1, cartesian_coord(150, 150)))
-    masses.append(circle(5000, cartesian_coord(140, 160)))
+    masses.append(circle(canvas, 150000000, cartesian_coord(15, 15)))
+    masses.append(circle(canvas, 1, cartesian_coord(150, 150)))
+    masses.append(circle(canvas, 5000, cartesian_coord(140, 160)))
     draw()
 
 

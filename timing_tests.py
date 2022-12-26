@@ -32,8 +32,9 @@ stmt2 = '''
 for i in range(0, N-1):
     coords[i].add_2(coords[i+1])
 '''
-#stmt1@10000:N=100 ::: 4.08, 4.37, 4.71, 4.50, 4.44
-#stmt2@10000:N=100 ::: 2.56, 2.59, 2.64, 2.71, 2.64
+#stmt1@10000:N=100 ::: 4.08, 4.37, 4.71, 4.50, 4.44 ::: 4.42
+#stmt2@10000:N=100 ::: 2.56, 2.59, 2.64, 2.71, 2.64 ::: 2.63
+# stmt2 takes 60% the time of stmt 1
 # yooooooo, the math heavy addition, is drastically faster,
 # probably because it doesn't need to create classes
 f = timeit.timeit(stmt=stmt2, setup=setup, number = 10000)
