@@ -1,6 +1,7 @@
 import math
 import tkinter as tk
 from scipy import constants
+import random as rnd
 
 # physics
 x_max = 500
@@ -89,7 +90,7 @@ class circle():
         self.momentum = momentum
         self.energy = energy
         self.charge = charge
-        self.size = 10 # set to minimum then math.log then max
+        self.size = max(math.log(mass), 2) # set to minimum then math.log then max
         
         # drawing stuff
         self.start_point = cartesian_coord(
@@ -112,6 +113,9 @@ class circle():
 
     def move(self):
         self.canvas.move(self.vis, self.movement.x, self.movement.y)
+        # Reset the movement after moving!
+        self.movement.x = 0
+        self.movement.y = 0
 
 # returns distance vector with pythagorean distance and radian angle
 def difference_polar(point_from, point_to):
@@ -122,10 +126,21 @@ def difference_polar(point_from, point_to):
 
     return polar_coord(distance, direction)
 
+# returns just distance
+def distance(point_from, point_to):
+    x_dist = point_to.x - point_from.x
+    y_dist = point_to.y - point_from.y
+    distance = math.sqrt(math.pow(x_dist, 2) + math.pow(y_dist, 2))
+
+    return distance
+
 # gravitational force
 def calc_gravitational_force(circle_from, circle_to):
+
+    radial_diff = (circle_from.size + circle_to.size) / 2
     diff = difference_polar(circle_from.position, circle_to.position)
-    force = (constants.G * circle_from.mass * circle_to.mass) / math.pow(diff.r, 2)
+    force = (constants.G * circle_from.mass * circle_to.mass) /       \
+               math.pow(max(diff.r, radial_diff), 2)
 
     return cartesian_coord(
         force * math.cos(diff.theta),
@@ -180,6 +195,25 @@ def tick_object_simult(circle, force, delta):
     circle.acceleration, circle.velocity, circle.position  = acceleration, velocity, position
     circle.movement += movement # += to add up changes until next visual frame
 
+def wrap_box(circle, i):
+    #left side:
+    if circle.position.x < 0:
+        circle.position.x = x_max
+        circle.movement.x += 500
+    #right side:
+    elif circle.position.x > x_max:
+        circle.position.x = 0
+        circle.movement.x -= 500
+
+    # top bit
+    if circle.position.y < 0:
+        circle.position.y = y_max
+        circle.movement.y += 500
+    # bottom bit
+    elif circle.position.y > y_max:
+        circle.position.y = 0
+        circle.movement.y -= 500
+
 # force of:
     # gravity
     # E&M
@@ -215,6 +249,13 @@ def tick_object_simult(circle, force, delta):
 ### and apparently after those 2 function calls we need a mainloop call I think, we'll see
 
 
+# TODO: DEBUG, the objects are only ever accelerating! I believe this is due to
+#       movement not getting reset on each draw frame or something like that!
+#       there's probably a feedback loop in calculating movement.
+#       Should I transition away from calculating movement during the physics calculation 
+#         and only calculate right before drawing?
+
+
 DELTA = 50
 TOTAL = 0
 
@@ -236,13 +277,14 @@ def draw():
     # TODO: add velocity arrows
     # TODO: add hollow spheres at edge of square when circle goes out of bounds
     # TODO: Change color with mass
-    # TODO: change size with mass by log or something
+    
     # call physics changes, could alter iteration inside from 1 to 10, hopefully it runs well enough
     physics()
     for cir in masses:
         cir.move()
         
-    window.after(10, draw)
+    # window.after(10, draw)
+    window.after(1, draw)
 
 #### this is the actual physics simulation 
 # sets up a force matrix to contain active forces
@@ -284,13 +326,25 @@ def physics():
             
             tick_object_row(obj, sum_force, DELTA)
 
+            wrap_box(masses[i], i)
+  
+
+    ### collision detection
+    # detecting is just determining if distance < r1+r2
+    # the physics involves perfectly elastic collisions now
+    # # # potential for a bound state if they stick together
+    # 
+
 
     # update graphics here to tie framerate 
 
 def start(event):
-    masses.append(circle(canvas, 150000000, cartesian_coord(15, 15)))
-    masses.append(circle(canvas, 1, cartesian_coord(150, 150)))
-    masses.append(circle(canvas, 5000, cartesian_coord(140, 160)))
+    for i in range(0, rnd.randint(5, 50)):
+        masses.append(circle(
+            canvas, 
+            rnd.randint(1, 999999), 
+            cartesian_coord(rnd.randint(50, 450), rnd.randint(50, 450)))
+            )
     draw()
 
 
